@@ -1,0 +1,21 @@
+--extra-index-url https://download.pytorch.org/whl/cu129
+
+# Core
+torch
+torchvision
+transformers
+datasets
+
+# Donut specific
+sentencepiece
+pillow
+
+# Training utilities  
+accelerate
+scikit-learn
+
+# Data processing
+numpy
+tqdm
+pandas
+pyarrow  # For parquet files
