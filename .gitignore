@@ -182,3 +182,4 @@ cython_debug/
 output
 training
 validation
+_data

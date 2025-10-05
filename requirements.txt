@@ -4,6 +4,7 @@
 torch
 torchvision
 transformers
+ultralytics
 datasets
 
 # Donut specific
