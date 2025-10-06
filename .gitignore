@@ -183,3 +183,5 @@ output
 training
 validation
 _data
+runs
+**/*.pt
