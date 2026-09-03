@@ -564,6 +564,7 @@ state, theme, owned-printing lookup). `make parity` runs Experiment 1.
 - [x] `app/` as a pnpm workspace (web/ and server/ own their runtime deps; one hoisted node_modules, one lockfile, one tsconfig, Biome), Makefile (`install`, `dev`, `start`, `check`, `parity`, `docker-*`)
 - [x] Dockerfile (single process, node:24-slim, GPU providers stripped) + compose; container verified with real data
 - [x] Export scripts default to `~/.config/mtg-scanner/models/`
+- [x] Data bundle: `make bundle` packs the four provisioned files into one `.tar.gz` (about 540 MB; the encoder weights do not compress) and `make unbundle` restores it into `DATA_DIR`, so a second machine skips the training pipeline; shared as a download, not in git
 - [x] Delete the untracked `backend/` directory (Rust axum server, 25 GB `target/`) -- removed
 
 ## Conclusion

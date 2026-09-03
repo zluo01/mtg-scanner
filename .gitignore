@@ -190,6 +190,8 @@ app/dist/
 
 # Local runtime data (index, models, SQLite, scan photos)
 /data/
+# Data bundles (make bundle) are ~540 MB: share them as downloads, not in git
+/bundle/
 *.db
 *.db-wal
 *.db-shm
