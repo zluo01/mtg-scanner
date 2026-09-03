@@ -5,14 +5,15 @@ app/dist/
 # Training pipeline and data (provisioned into /data at runtime instead)
 training/
 data/
+bundle/
 
 # Repo noise
 .git/
 .idea/
 .vscode/
 .claude/
-.forge/
 docs/
+skills/
 *.log
 *.db
 *.db-*
