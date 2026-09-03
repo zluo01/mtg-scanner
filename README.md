@@ -102,8 +102,10 @@ DATA_DIR/
 ```
 
 **With the data bundle** (the usual way): `mtg-scanner-data-<date>.tar.gz`
-is a single gzip archive of all four files, about 540 MB, shared as a
-download alongside the code. Unpack it into the data directory:
+is a single gzip archive of all four files, about 540 MB. Download the
+latest one from the [Releases page](../../releases) of this repository,
+where each release carries the bundle built from the index and models the
+code was verified with. Unpack it into the data directory:
 
 ```sh
 make unbundle BUNDLE=~/Downloads/mtg-scanner-data-20260903.tar.gz
@@ -200,7 +202,9 @@ the scanner uses the photo picker; that is deliberate and works everywhere.
 
 ## Building the index and models
 
-The training pipeline lives in `training/` and runs in the `learning` conda
+You only need this if you want an index newer than the bundle on the
+[Releases page](../../releases), or to change the models. The training
+pipeline lives in `training/` and runs in the `learning` conda
 environment. Run every script with `python -s` so a user-level numpy cannot
 shadow the environment's; faiss is built against numpy 1.x.
 
