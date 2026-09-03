@@ -8,13 +8,17 @@
  * unidentified cards with the file's name, set and number, ready for the
  * "identify" flow, and reported back.
  *
- * Cards are keyed by printing + foil (as scans are), so a file row lands on
- * an existing card when there is one. `mode` decides what happens then.
+ * Identified rows go through the database's upsert, so folding into a
+ * card already held is the database's job (`upsert.sql` adds copies,
+ * `upsert-set.sql` makes the count the file's). A file's rows for one
+ * printing + foil are summed first, so "set" means the file's total.
+ * Unidentified rows have no printing for the index to fold on; they are
+ * matched here by name, set, number and foil.
  */
 import { randomUUID } from 'node:crypto';
 import type { ImportMode, ImportResponse } from '../../shared/api.ts';
 import { parseCsv } from './csv.ts';
-import type { CardStore, StoredCard } from './db.ts';
+import type { CardStore, NewCard, StoredCard } from './db.ts';
 import { badRequest } from './errors.ts';
 import type { CardCatalog } from './metadata.ts';
 
@@ -99,66 +103,87 @@ export interface ImportDeps {
 	catalog: CardCatalog;
 }
 
-/** Printing + foil for identified cards; name + set + number + foil otherwise. */
-const keyOf = (c: Pick<StoredCard, 'scryfall_id' | 'name' | 'set_code' | 'collector_number' | 'foil'>) =>
-	c.scryfall_id
-		? `id:${c.scryfall_id}:${c.foil ? 1 : 0}`
-		: `u:${c.name.toLowerCase()}:${c.set_code ?? ''}:${c.collector_number ?? ''}:${c.foil ? 1 : 0}`;
+const latest = (a: string, b: string) => (a > b ? a : b);
+
+/** Unidentified rows are matched by what the file gave us. */
+const placeholderKey = (c: Pick<StoredCard, 'name' | 'set_code' | 'collector_number' | 'foil'>) =>
+	`${c.name.toLowerCase()}|${c.set_code ?? ''}|${c.collector_number ?? ''}|${c.foil ? 1 : 0}`;
+
+/** Sum a file's rows per card, so one upsert carries the file's total. */
+function collect(into: Map<string, NewCard>, key: string, card: NewCard): void {
+	const prior = into.get(key);
+	if (!prior) into.set(key, card);
+	else {
+		prior.count = (prior.count ?? 1) + (card.count ?? 1);
+		prior.created_at = latest(prior.created_at ?? '', card.created_at ?? '');
+	}
+}
 
 export function importMoxfield(
 	{ cards, catalog }: ImportDeps,
 	rows: MoxfieldRow[],
 	mode: ImportMode,
 ): ImportResponse {
-	const byKey = new Map<string, StoredCard>();
-	for (const c of cards.list()) byKey.set(keyOf(c), c);
-	/** Keys this file has already written, so a second row for the same card adds to the first. */
-	const seen = new Set<string>();
-	let added = 0;
-	let updated = 0;
+	const now = new Date().toISOString();
+	const identified = new Map<string, NewCard>();
+	const placeholders = new Map<string, NewCard>();
 	const unmatched: string[] = [];
 
-	cards.transaction(() => {
-		for (const row of rows) {
-			const printing = catalog.findPrinting(row.set_code, row.collector_number, row.lang);
-			const identity = printing
-				? {
-						scryfall_id: printing.scryfall_id,
-						name: printing.name,
-						set_code: printing.set_code,
-						collector_number: printing.collector_number,
-					}
-				: {
-						scryfall_id: null,
-						name: row.name,
-						set_code: row.set_code || null,
-						collector_number: row.collector_number || null,
-					};
-			if (!printing) unmatched.push(row.name);
+	for (const row of rows) {
+		const printing = catalog.findPrinting(row.set_code, row.collector_number, row.lang);
+		const created_at = row.modified_at ?? now;
+		if (printing) {
+			collect(identified, `${printing.scryfall_id}|${row.foil ? 1 : 0}`, {
+				card_id: randomUUID(),
+				scryfall_id: printing.scryfall_id,
+				name: printing.name,
+				set_code: printing.set_code,
+				collector_number: printing.collector_number,
+				foil: row.foil,
+				count: row.count,
+				created_at,
+			});
+		} else {
+			unmatched.push(row.name);
+			const card: NewCard = {
+				card_id: randomUUID(),
+				scryfall_id: null,
+				name: row.name,
+				set_code: row.set_code || null,
+				collector_number: row.collector_number || null,
+				foil: row.foil,
+				count: row.count,
+				created_at,
+			};
+			collect(placeholders, placeholderKey(card), card);
+		}
+	}
 
-			const key = keyOf({ ...identity, foil: row.foil });
-			const existing = byKey.get(key);
-			if (existing) {
-				const count = mode === 'add' || seen.has(key) ? existing.count + row.count : row.count;
-				if (count !== existing.count) {
-					// More copies than before: the card counts as newly added.
-					const created_at =
-						count > existing.count ? (row.modified_at ?? new Date().toISOString()) : undefined;
-					byKey.set(key, cards.update(existing.card_id, { count, created_at }));
-				}
-				if (!seen.has(key)) updated++;
-			} else {
-				const created = cards.insert({
-					card_id: randomUUID(),
-					...identity,
-					foil: row.foil,
-					count: row.count,
-					created_at: row.modified_at ?? undefined,
-				});
-				byKey.set(key, created);
+	let added = 0;
+	let updated = 0;
+	cards.transaction(() => {
+		for (const card of identified.values()) {
+			if (cards.upsert(card, mode).merged) updated++;
+			else added++;
+		}
+		const held = new Map(
+			cards
+				.list()
+				.filter((c) => !c.scryfall_id)
+				.map((c) => [placeholderKey(c), c]),
+		);
+		for (const [key, card] of placeholders) {
+			const prior = held.get(key);
+			if (!prior) {
+				cards.insert(card);
 				added++;
+				continue;
 			}
-			seen.add(key);
+			const count = mode === 'add' ? prior.count + (card.count ?? 1) : (card.count ?? 1);
+			if (count !== prior.count) {
+				cards.update(prior.card_id, { count, created_at: count > prior.count ? card.created_at : undefined });
+			}
+			updated++;
 		}
 	});
 

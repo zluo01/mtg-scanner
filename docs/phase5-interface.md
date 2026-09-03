@@ -173,7 +173,8 @@ One process, TypeScript run natively by Node (no build step). Hono routes
 
 | Module | Role |
 |--------|------|
-| `db.ts` | `node:sqlite` card store (WAL), nine columns; the partial unique index that is the one-row-per-printing rule; `upsert` (fold in one statement), insert, list, partial update, delete, transactions, `merge` for folds that need a photo moved |
+| `db.ts` | `node:sqlite` card store (WAL), nine columns; binds parameters and maps rows for the statements in `sql/` (upsert that folds in one statement, insert, list, partial update, delete, merge for folds that need a photo moved, transactions) |
+| `sql/*.sql`, `sql.ts` | Every statement as its own file, named parameters (`:card_id`), read once at startup by `sql.ts`, which fails the process if one is missing. `schema.sql` and `printing-rule.sql` are the table and the one-row-per-printing index; `update.sql` is static, each column guarded by a `set_*` flag so an omitted field is left alone and an explicit NULL still clears |
 | `library.ts` | Above the store for the cases involving a photo: addScan (photo follows a fold), change (an edit that collides folds in-transaction), remove, and the one-time dedupeAll for databases from before the rule |
 | `images.ts` | `DATA_DIR/scans/{card_id}.jpg`; keeps the set of ids that have a photo, so `has_photo` is free per card |
 | `faiss.ts` | Parses the real `IndexFlatIP` header (fourcc `IxFI`, d, ntotal, nfloats) and searches with an unrolled typed-array inner-product loop |
@@ -183,7 +184,7 @@ One process, TypeScript run natively by Node (no build step). Hono routes
 | `scan.ts` | `identifyScan` (thresholds, candidates; stores nothing) and `addScannedCard` (printing from the catalog, placeholder rows, hands the card + photo to the library) |
 | `search.ts` | Ranked substring name search (exact > prefix > word start > substring); a "set code + collector number" query (`neo 172`, `NEO/172`, `plst tsp-157`) lists those printings first, every language, so a card can be found without its English name |
 | `csv.ts` | RFC 4180 parser; writers for the app's export and for Moxfield's layout (double-faced names joined from both faces by the catalog) |
-| `moxfield.ts` | Moxfield import: set + collector number (language preferred) -> printing; existing cards keyed by printing + foil; one transaction; unmatched rows kept as unidentified and reported |
+| `moxfield.ts` | Moxfield import: set + collector number (language preferred) -> printing; a file's rows are summed per printing + foil and go through the database upsert (`upsert.sql` adds, `upsert-set.sql` sets); unidentified rows, which have no printing to fold on, are matched by name, set, number and foil; one transaction; unmatched rows reported |
 
 Startup fails fast if any of the four provisioned files is missing, loads
 the index (331 MB) + metadata + model in parallel (under 1 s on the dev
@@ -544,6 +545,7 @@ state, theme, owned-printing lookup). `make parity` runs Experiment 1.
 ### Server
 - [x] Hono app with all routes, JSON errors, body limits, card-id validation, cache headers
 - [x] `node:sqlite` store with partial update and the fold primitive
+- [x] All SQL in `server/src/sql/*.sql` with named parameters, loaded once at startup; the partial update made static with per-column flags so nothing is built from strings; the import's fold logic moved into two upsert statements (add / set)
 - [~] One row per printing + foil enforced in `library.ts` with a fold on every boot -- Superseded the next day: the rule belongs to the database
 - [x] One row per printing + foil enforced by a partial unique index; adds are a single upsert; a colliding edit folds in-transaction; databases from before the rule are folded once and then indexed; survivor takes the newest added date and the photo if it had none
 - [x] `POST /api/identify` + `POST /api/cards` (photo body) replace the single scan endpoint
