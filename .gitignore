@@ -118,7 +118,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 lib64/
 parts/
 sdist/
@@ -179,9 +179,18 @@ dmypy.json
 .pyre/
 .pytype/
 cython_debug/
-output
-training
-validation
+/output
+/validation
 _data
 runs
 **/*.pt
+
+# App build output
+app/dist/
+
+# Local runtime data (index, models, SQLite, scan photos)
+/data/
+*.db
+*.db-wal
+*.db-shm
+/.claude/
