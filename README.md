@@ -26,6 +26,18 @@ the phone only needs a browser on the same network.
 - **Phone first.** Installable PWA, bottom sheets with swipe to close, works
   over plain http on a LAN, light and dark themes.
 
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/library-phone.webp" width="170" alt="The library grid on a phone, dark theme"><br><sub>Library</sub></td>
+    <td align="center"><img src="docs/screenshots/filters-phone.webp" width="170" alt="The filter sheet: colour, mana value, rarity, type, printing, set, artist"><br><sub>Filters</sub></td>
+    <td align="center"><img src="docs/screenshots/review-phone.webp" width="170" alt="Scan review: your photo beside the matched printing, with the owned count"><br><sub>Scan review</sub></td>
+    <td align="center"><img src="docs/screenshots/detail-phone.webp" width="170" alt="Card detail, light theme: set, type line, rarity, copies, foil"><br><sub>Card detail</sub></td>
+    <td align="center"><img src="docs/screenshots/settings-phone.webp" width="170" alt="Settings: appearance, Moxfield export and import"><br><sub>Settings</sub></td>
+  </tr>
+</table>
+
 ## How it works
 
 ```
