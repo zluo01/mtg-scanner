@@ -173,8 +173,8 @@ One process, TypeScript run natively by Node (no build step). Hono routes
 
 | Module | Role |
 |--------|------|
-| `db.ts` | `node:sqlite` card store (WAL), nine columns; insert, list, partial update, delete, transactions, the fold primitive (`merge`: counts add, newest `created_at` wins) |
-| `library.ts` | The one-row-per-printing+foil rule: add / addScan (photo follows) / change with optional `copies` (split, then fold) / remove by copies / dedupeAll at startup |
+| `db.ts` | `node:sqlite` card store (WAL), nine columns; the partial unique index that is the one-row-per-printing rule; `upsert` (fold in one statement), insert, list, partial update, delete, transactions, `merge` for folds that need a photo moved |
+| `library.ts` | Above the store for the cases involving a photo: addScan (photo follows a fold), change (an edit that collides folds in-transaction), remove, and the one-time dedupeAll for databases from before the rule |
 | `images.ts` | `DATA_DIR/scans/{card_id}.jpg`; keeps the set of ids that have a photo, so `has_photo` is free per card |
 | `faiss.ts` | Parses the real `IndexFlatIP` header (fourcc `IxFI`, d, ntotal, nfloats) and searches with an unrolled typed-array inner-product loop |
 | `metadata.ts` | `card_metadata.parquet` via hyparquet (accepts `scryfall_id`/`id`, `set_code`/`set`, `mana_value`/`cmc`) into a `CardCatalog` keyed by `scryfall_id`; supplies the printing attributes attached to every card response |
@@ -301,18 +301,23 @@ the sheet before that leaves nothing behind, so there is no row to roll
 back and no orphaned photo. A binder page identifies every crop up front
 and adds each card as it is confirmed.
 
-One row per printing + foil, always (`server/src/library.ts`). Every write
-that could make two rows share a printing folds them instead: adding a
-scan of a card already owned raises that card's count (the response
-carries the owning card and `merged: true`; the review says "you already
-have this ×N" before Add), a foil flip or corrected printing that lands on
-an existing card folds into it, an import adds to what is there, and rows
-written before the rule are folded at startup. The survivor keeps its id,
-takes the newest added date so it sorts as recently added, and inherits
-the folded row's photo if it had none. Placeholders never fold. The card
-detail follows the card if a change folds it into another. There is no
-merge button and no merge endpoint: the data layer never holds two rows
-to merge.
+One row per printing + foil, always, and the database is what says so: a
+partial unique index on `(scryfall_id, foil)` for identified rows
+(`uq_cards_printing`, `db.ts`). Adding a card is one upsert statement,
+`INSERT … ON CONFLICT DO UPDATE` adding the counts and taking the newer
+added date, so the outcome is atomic whatever else is writing (the
+response carries the owning card and `merged: true`; the review says "you
+already have this ×N" before Add). A foil flip or corrected printing that
+would land on a card already held folds into it inside the same
+transaction, an import adds to what is there, and placeholders, which have
+no printing, are exempt from the index. The survivor keeps its id, takes
+the newest added date so it sorts as recently added, and inherits the
+folded row's photo if it had none; moving photos is the part the database
+cannot do and is what `library.ts` is for. A database written before the
+rule is folded once at startup and then gets the index; the review library
+went from 1,650 rows to 1,619 that way. The card detail follows the card
+if a change folds it into another. There is no merge button and no merge
+endpoint: the data layer cannot hold two rows to merge.
 
 ### Container
 
@@ -539,7 +544,8 @@ state, theme, owned-printing lookup). `make parity` runs Experiment 1.
 ### Server
 - [x] Hono app with all routes, JSON errors, body limits, card-id validation, cache headers
 - [x] `node:sqlite` store with partial update and the fold primitive
-- [x] One row per printing + foil, enforced by `library.ts` on add, edit, import and at startup (rows from before the rule fold on boot); survivor takes the newest added date and the photo if it had none
+- [~] One row per printing + foil enforced in `library.ts` with a fold on every boot -- Superseded the next day: the rule belongs to the database
+- [x] One row per printing + foil enforced by a partial unique index; adds are a single upsert; a colliding edit folds in-transaction; databases from before the rule are folded once and then indexed; survivor takes the newest added date and the photo if it had none
 - [x] `POST /api/identify` + `POST /api/cards` (photo body) replace the single scan endpoint
 - [~] `POST /api/merge` -- Removed: nothing left to merge by hand
 - [x] Real FAISS `IndexFlatIP` header parsing + top-k search

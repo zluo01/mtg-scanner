@@ -1,19 +1,19 @@
 /**
  * The library's one rule: a printing + foil lives in exactly one row.
  *
- * Every way a row can come to share a printing with another (a scan of a
- * card already owned, a foil flip, a corrected printing, rows written
- * before this rule) ends here with the two folded together: counts add, the
- * survivor takes the newest added date, and the photo follows when the
- * survivor had none. Placeholders (no printing) never fold. Imports fold on
- * the same key in `moxfield.ts`.
+ * The database enforces it (a unique index over printing + foil, see
+ * `db.ts`), so adding is a single upsert: counts add and the survivor takes
+ * the newest added date. What the database cannot do is move a photo, so
+ * this service sits above the store for the cases that involve one: a
+ * scan's photo when it folds into a card without one, a photo following a
+ * row that folds after an edit, and the one-time fold of rows written
+ * before the rule existed. Placeholders (no printing) never fold. Imports
+ * fold on the same key in `moxfield.ts`.
  */
 import type { UpdateCardRequest } from '../../shared/api.ts';
 import type { CardStore, NewCard, StoredCard } from './db.ts';
+import { notFound } from './errors.ts';
 import type { ImageStore } from './images.ts';
-
-const now = () => new Date().toISOString();
-const latest = (a: string, b: string) => (a > b ? a : b);
 
 export interface Added {
 	card: StoredCard;
@@ -46,15 +46,7 @@ export class Library {
 
 	/** Insert, or fold into the card that already holds this printing + foil. */
 	add(card: NewCard): Added {
-		return this.#cards.transaction(() => {
-			const existing = this.find(card.scryfall_id, card.foil);
-			if (!existing) return { card: this.#cards.insert(card), merged: false };
-			const survivor = this.#cards.update(existing.card_id, {
-				count: existing.count + (card.count ?? 1),
-				created_at: latest(existing.created_at, card.created_at ?? now()),
-			});
-			return { card: survivor, merged: true };
-		});
+		return this.#cards.upsert(card);
 	}
 
 	/**
@@ -77,15 +69,19 @@ export class Library {
 	}
 
 	/**
-	 * Apply a change; if it lands on a printing + foil another card already
-	 * holds, fold into that card. Returns the row now holding the copies,
-	 * which may not be `cardId`.
+	 * Apply a change. If it would move the card onto a printing + foil
+	 * another card already holds, the card folds into that one instead
+	 * (the index would refuse the plain update). Returns the row now
+	 * holding the copies, which may not be `cardId`.
 	 */
 	async change(cardId: string, patch: UpdateCardRequest): Promise<StoredCard> {
 		const { survivor, folded } = this.#cards.transaction(() => {
-			const updated = this.#cards.update(cardId, patch);
-			const twin = this.find(updated.scryfall_id, updated.foil, cardId);
-			if (!twin) return { survivor: updated, folded: false };
+			const current = this.#cards.get(cardId);
+			if (!current) throw notFound(`Card ${cardId} not found`);
+			const next = { ...current, ...patch };
+			const twin = this.find(next.scryfall_id, next.foil, cardId);
+			if (!twin) return { survivor: this.#cards.update(cardId, patch), folded: false };
+			if (patch.count !== undefined) this.#cards.update(cardId, { count: patch.count });
 			return { survivor: this.#cards.merge(twin.card_id, cardId), folded: true };
 		});
 		if (folded) await this.#movePhoto(cardId, survivor.card_id);
@@ -100,9 +96,9 @@ export class Library {
 	}
 
 	/**
-	 * Fold rows that share a printing + foil (data written before this rule
-	 * existed). The oldest row survives with the newest added date. Returns
-	 * how many rows were folded away.
+	 * One-time fold of rows written before the database enforced the rule.
+	 * The oldest row survives with the newest added date. Returns how many
+	 * rows were folded away; the caller then enforces the rule.
 	 */
 	async dedupeAll(): Promise<number> {
 		const groups = new Map<string, StoredCard[]>();

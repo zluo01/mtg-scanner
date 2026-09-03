@@ -129,23 +129,34 @@ test('remove deletes the row with its photo', async () => {
 	}
 });
 
-test('dedupeAll folds rows written before the rule, oldest id surviving with the newest date', async () => {
+test('dedupeAll folds rows written before the rule, then the rule can be enforced', async () => {
 	const s = await stores();
+	// A database from before the rule: no index yet, duplicates allowed.
+	const { CardStore } = await import('../src/db.ts');
+	const legacy = CardStore.open(':memory:', { enforcePrintingRule: false });
+	const library = new Library(legacy, s.images);
 	try {
-		s.cards.insert(bolt('old', { created_at: OLD }));
-		s.cards.insert(bolt('mid', { count: 2, created_at: '2023-01-01T00:00:00.000Z' }));
+		legacy.insert(bolt('old', { created_at: OLD }));
+		legacy.insert(bolt('mid', { count: 2, created_at: '2023-01-01T00:00:00.000Z' }));
 		await s.images.write('mid', PHOTO_A);
-		s.cards.insert(bolt('new', { created_at: '2026-01-01T00:00:00.000Z' }));
-		s.cards.insert(bolt('foil', { foil: true }));
-		assert.equal(await s.library.dedupeAll(), 2);
-		const kept = s.cards.get('old');
+		legacy.insert(bolt('new', { created_at: '2026-01-01T00:00:00.000Z' }));
+		legacy.insert(bolt('foil', { foil: true }));
+		assert.equal(legacy.hasDuplicatePrintings(), true);
+		assert.equal(await library.dedupeAll(), 2);
+		const kept = legacy.get('old');
 		assert.equal(kept?.count, 4);
 		assert.equal(kept?.created_at, '2026-01-01T00:00:00.000Z');
-		assert.equal(s.cards.count(), 2);
+		assert.equal(legacy.count(), 2);
 		assert.equal(s.images.has('old'), true);
 		assert.equal(s.images.has('mid'), false);
-		assert.equal(await s.library.dedupeAll(), 0);
+		legacy.enforcePrintingRule();
+		assert.equal(legacy.printingRuleEnforced(), true);
+		assert.equal(await library.dedupeAll(), 0);
+		// From here the database refuses what the fold used to repair.
+		assert.throws(() => legacy.insert(bolt('again')), /UNIQUE/);
+		assert.equal(library.add(bolt('again')).card.card_id, 'old');
 	} finally {
+		legacy.close();
 		await s.cleanup();
 	}
 });

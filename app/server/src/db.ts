@@ -29,6 +29,15 @@ CREATE TABLE IF NOT EXISTS cards (
 CREATE INDEX IF NOT EXISTS idx_cards_scryfall_id ON cards (scryfall_id);
 `;
 
+/**
+ * The library's one rule, stated to the database: a printing + foil lives
+ * in exactly one row. Placeholders (no printing) are exempt. `upsert` folds
+ * through this index; a database written before the rule existed is folded
+ * once at startup and then gets the index (see `Library.dedupeAll`).
+ */
+const PRINTING_RULE =
+	'CREATE UNIQUE INDEX IF NOT EXISTS uq_cards_printing ON cards (scryfall_id, foil) WHERE scryfall_id IS NOT NULL';
+
 /** The stored fields of a card (`CardEntry` minus the printing attributes). */
 export type StoredCard = Pick<
 	CardEntry,
@@ -92,16 +101,83 @@ export class CardStore {
 		this.#db = db;
 	}
 
-	/** Open (or create) the database at `file`. Use `':memory:'` for tests. */
-	static open(file: string): CardStore {
+	/**
+	 * Open (or create) the database at `file`. Use `':memory:'` for tests.
+	 * The printing rule is put in place unless the data already breaks it
+	 * (rows from before the rule), in which case the caller folds those
+	 * first and then calls `enforcePrintingRule`. Tests that need a
+	 * pre-rule database pass `enforcePrintingRule: false`.
+	 */
+	static open(file: string, options: { enforcePrintingRule?: boolean } = {}): CardStore {
 		const db = new DatabaseSync(file);
 		if (file !== ':memory:') db.exec('PRAGMA journal_mode = WAL');
 		db.exec(SCHEMA);
-		return new CardStore(db);
+		const store = new CardStore(db);
+		if (options.enforcePrintingRule !== false && !store.hasDuplicatePrintings()) store.enforcePrintingRule();
+		return store;
 	}
 
 	close(): void {
 		this.#db.close();
+	}
+
+	/** Whether the unique printing + foil index exists. */
+	printingRuleEnforced(): boolean {
+		const row = this.#db
+			.prepare("SELECT 1 AS present FROM sqlite_master WHERE type = 'index' AND name = 'uq_cards_printing'")
+			.get();
+		return row !== undefined;
+	}
+
+	/** Rows that share a printing + foil exist (only possible before the rule was enforced). */
+	hasDuplicatePrintings(): boolean {
+		const row = this.#db
+			.prepare(
+				`SELECT COUNT(*) AS n FROM (
+					SELECT 1 FROM cards WHERE scryfall_id IS NOT NULL GROUP BY scryfall_id, foil HAVING COUNT(*) > 1
+				)`,
+			)
+			.get() as { n: number };
+		return row.n > 0;
+	}
+
+	/** Create the unique index. Throws if duplicate printings still exist. */
+	enforcePrintingRule(): void {
+		this.#db.exec(PRINTING_RULE);
+	}
+
+	/**
+	 * Insert, or, when the printing + foil is already held, add the copies
+	 * to that row and give it the newer added date. One statement, so the
+	 * outcome is the same whatever else is writing. Requires the printing
+	 * rule to be in place.
+	 */
+	upsert(card: NewCard): { card: StoredCard; merged: boolean } {
+		const count = card.count ?? 1;
+		if (!Number.isInteger(count) || count < 1) throw badRequest('count must be a positive whole number');
+		const ts = now();
+		const row = this.#db
+			.prepare(
+				`INSERT INTO cards (card_id, scryfall_id, name, set_code, collector_number, foil, count, created_at, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+				 ON CONFLICT (scryfall_id, foil) WHERE scryfall_id IS NOT NULL DO UPDATE SET
+				   count = count + excluded.count,
+				   created_at = MAX(created_at, excluded.created_at),
+				   updated_at = excluded.updated_at
+				 RETURNING *`,
+			)
+			.get(
+				card.card_id,
+				card.scryfall_id,
+				card.name,
+				card.set_code,
+				card.collector_number,
+				card.foil ? 1 : 0,
+				count,
+				card.created_at ?? ts,
+				ts,
+			) as unknown as Row;
+		return { card: rowToCard(row), merged: row.card_id !== card.card_id };
 	}
 
 	insert(card: NewCard): StoredCard {

@@ -50,9 +50,13 @@ async function main(): Promise<void> {
 	mkdirSync(config.scansDir, { recursive: true });
 	const cards = CardStore.open(config.dbPath);
 	const images = new ImageStore(config.scansDir);
-	// One row per printing + foil; rows written before that rule fold now.
-	const folded = await new Library(cards, images).dedupeAll();
-	if (folded > 0) log(`Folded ${folded} duplicate rows into the cards that own their printing`);
+	// One row per printing + foil, enforced by the database. A database from
+	// before the rule is folded once here, then gets the index for good.
+	if (!cards.printingRuleEnforced()) {
+		const folded = await new Library(cards, images).dedupeAll();
+		cards.enforcePrintingRule();
+		log(`Folded ${folded} duplicate rows and enforced one row per printing + foil`);
+	}
 
 	const [index, metadata, embedder] = await Promise.all([
 		timed('Loaded visual index', () => readFlatIndex(config.indexPath)),

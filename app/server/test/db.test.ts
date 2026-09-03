@@ -66,6 +66,57 @@ test('transaction commits on return and rolls back on throw', () => {
 	db.close();
 });
 
+test('the database itself refuses a second row for a printing + foil', () => {
+	const db = CardStore.open(':memory:');
+	assert.equal(db.printingRuleEnforced(), true);
+	db.insert(newCard('a', { scryfall_id: 'sf-x' }));
+	assert.throws(() => db.insert(newCard('b', { scryfall_id: 'sf-x' })), /UNIQUE/);
+	db.insert(newCard('c', { scryfall_id: 'sf-x', foil: true })); // foil is a different card
+	db.insert(newCard('p1', { scryfall_id: null }));
+	db.insert(newCard('p2', { scryfall_id: null })); // placeholders are exempt
+	assert.equal(db.count(), 4);
+	db.close();
+});
+
+test('upsert folds into the owning row in one statement', () => {
+	const db = CardStore.open(':memory:');
+	const bolt = (id: string, extra: Partial<Parameters<CardStore['upsert']>[0]> = {}) =>
+		newCard(id, { scryfall_id: 'sf-x', ...extra });
+	const first = db.upsert(bolt('a', { created_at: '2020-01-01T00:00:00.000Z' }));
+	assert.equal(first.merged, false);
+	assert.equal(first.card.card_id, 'a');
+	const second = db.upsert(bolt('b', { count: 2, created_at: '2025-01-01T00:00:00.000Z' }));
+	assert.equal(second.merged, true);
+	assert.equal(second.card.card_id, 'a');
+	assert.equal(second.card.count, 3);
+	assert.equal(second.card.created_at, '2025-01-01T00:00:00.000Z', 'newest added date');
+	assert.equal(db.get('b'), null);
+	const older = db.upsert(bolt('c', { created_at: '2010-01-01T00:00:00.000Z' }));
+	assert.equal(older.card.created_at, '2025-01-01T00:00:00.000Z', 'an older addition keeps the newer date');
+	assert.equal(older.card.count, 4);
+	assert.equal(db.upsert(bolt('f', { foil: true })).merged, false);
+	assert.equal(db.upsert(bolt('p', { scryfall_id: null })).merged, false);
+	assert.equal(db.upsert(bolt('q', { scryfall_id: null })).merged, false);
+	assert.equal(db.count(), 4);
+	assert.throws(() => db.upsert(bolt('z', { count: 0 })));
+	db.close();
+});
+
+test('a database from before the rule is opened without the index until it is folded', () => {
+	const db = CardStore.open(':memory:', { enforcePrintingRule: false });
+	assert.equal(db.printingRuleEnforced(), false);
+	db.insert(newCard('a', { scryfall_id: 'sf-x' }));
+	db.insert(newCard('b', { scryfall_id: 'sf-x' }));
+	assert.equal(db.hasDuplicatePrintings(), true);
+	assert.throws(() => db.enforcePrintingRule(), /UNIQUE/);
+	db.merge('a', 'b');
+	assert.equal(db.hasDuplicatePrintings(), false);
+	db.enforcePrintingRule();
+	assert.equal(db.printingRuleEnforced(), true);
+	assert.throws(() => db.insert(newCard('c', { scryfall_id: 'sf-x' })), /UNIQUE/);
+	db.close();
+});
+
 test('insert rejects duplicate ids', () => {
 	const db = CardStore.open(':memory:');
 	db.insert(newCard('a'));
@@ -89,7 +140,7 @@ test('placeholder rows allow null identification', () => {
 });
 
 test('findDuplicates matches printing + foil', () => {
-	const db = CardStore.open(':memory:');
+	const db = CardStore.open(':memory:', { enforcePrintingRule: false });
 	db.insert(newCard('a', { scryfall_id: 'sf-x' }));
 	db.insert(newCard('b', { scryfall_id: 'sf-x' }));
 	db.insert(newCard('c', { scryfall_id: 'sf-x', foil: true }));
@@ -152,7 +203,7 @@ test('delete reports whether a row existed', () => {
 });
 
 test('merge adds counts, takes the newer added date and deletes source', () => {
-	const db = CardStore.open(':memory:');
+	const db = CardStore.open(':memory:', { enforcePrintingRule: false });
 	db.insert(newCard('t', { count: 3, created_at: '2020-01-01T00:00:00.000Z' }));
 	db.insert(newCard('s', { count: 5, created_at: '2025-06-01T00:00:00.000Z' }));
 	db.insert(newCard('other'));
@@ -173,7 +224,7 @@ test('merge adds counts, takes the newer added date and deletes source', () => {
 test('merge validates both sides and rolls back', () => {
 	const db = CardStore.open(':memory:');
 	db.insert(newCard('t'));
-	db.insert(newCard('s'));
+	db.insert(newCard('s', { scryfall_id: 'sf-other' }));
 	assert.throws(
 		() => db.merge('t', 't'),
 		(e: unknown) => e instanceof HttpError && e.status === 400,
