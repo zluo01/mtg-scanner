@@ -8,7 +8,8 @@ Ship the scanner as a product that runs on a laptop or over the LAN from a
 phone: a browser app that detects and rectifies cards on-device, and one
 server process that identifies them, keeps the library, and serves the app.
 Prove it end to end, package it as a single container, and keep the moving
-parts to a minimum. Cloud infrastructure is deferred to Phase 6.
+parts to a minimum. Cloud infrastructure is deferred; there is no plan
+document for it yet.
 
 Principle: **thin client, server owns data**. The frontend is a display and
 interaction layer; all persistent state and identification logic live in the
@@ -228,7 +229,7 @@ None. Single-user; no user concept in the data model.
 | Modals | Native `<dialog>` | Focus trapping and the top layer without a component kit; the app adds the scroll lock |
 | Icons | lucide-solid | Only remaining UI dependency |
 | Detection | onnxruntime-web (wasm) | On-device, works offline once cached |
-| Server | Hono 4 on `@hono/node-server` | ~14 KB typed router; Lambda adapter available for Phase 6 |
+| Server | Hono 4 on `@hono/node-server` | ~14 KB typed router; adapters for other hosts exist should a cloud deployment want one |
 | Runtime | Node 24 | Native TypeScript execution, built-in `node:sqlite` and test runner |
 | Inference | onnxruntime-node + sharp | CPU execution provider; libvips bicubic matches PIL |
 | Parquet | hyparquet | Pure JS reader, snappy built in |
@@ -593,7 +594,7 @@ unidentified badge; fail-fast startup; single container; one exposed port.
     ecosystem gap that pushed the project to React was Radix, which native
     `<dialog>` replaced.
 21. **Hono over raw `node:http`**: routing, JSON, static files, and body
-    limits for 14 KB, plus a Lambda adapter for Phase 6.
+    limits for 14 KB, plus adapters for other hosts if ever needed.
 22. **No in-process index refresh**: rebuilds need the GPU and the
     placeholder detector; they stay in the Python pipeline and the server
     restarts to pick them up.
@@ -603,5 +604,7 @@ unidentified badge; fail-fast startup; single container; one exposed port.
     the client sent only `count`, so count edits could never have worked.
 25. **Raw image bodies for `/api/scan`** instead of base64 JSON.
 
-Carried to Phase 6: the same Hono app object behind `hono/aws-lambda` or a
-container service; the data directory maps to S3 + a managed SQLite/RDS.
+Carried forward to a cloud deployment, when one is planned: the same Hono
+app in a managed container; the data directory maps to object storage
+plus a managed database, behind small store interfaces that keep the
+local implementations for development.

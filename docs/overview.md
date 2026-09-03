@@ -58,7 +58,7 @@ Phone Camera Photo
 | 3     | [Hybrid Pipeline Integration](phase3-hybrid-pipeline.md) | **Complete**   |
 | 4     | [Refinements](phase4-refinements.md) (OCR fallback, model upgrades, ONNX quantization) | **Complete** |
 | 5     | [Application](phase5-interface.md) (SolidJS PWA + Hono/Node server with in-process SigLIP2 inference, single container) | **Complete**   |
-| 6     | [Cloud Deployment](phase6-deployment.md) (same server behind a Lambda adapter or container service, S3/CloudFront) | **Planned**    |
+| 6     | Cloud deployment (managed container, managed database, object storage, CDN; the earlier Lambda-per-operation plan was dropped as obsolete) | **Not started** |
 
 ### Key Technical Decisions
 
@@ -84,7 +84,6 @@ mtg-scanner/                             -- Monorepo root
     phase3-hybrid-pipeline.md            -- Phase 3 details
     phase4-refinements.md                -- Phase 4 details
     phase5-interface.md                  -- Phase 5 details
-    phase6-deployment.md                 -- Phase 6 details
 
   README.md                              -- Quickstart (provision DATA_DIR, make start / docker)
 

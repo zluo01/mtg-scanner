@@ -15,7 +15,7 @@
 | Container, Makefile, workspace layout | `docs/phase5-interface.md` | Configuration (Container), Checklist (Packaging) |
 | Measurements: latency, memory, parity, round trips | `docs/phase5-interface.md` | Experiments |
 | Verification method for UI work | `docs/phase5-interface.md` | Experiment 4, design notes |
-| Cloud deployment plan and stack | `docs/phase6-deployment.md` | Whole document (currently historical; rewrite when phase 6 starts) |
+| Cloud deployment plan and stack | none yet | Write a new phase document when that work starts; the earlier Lambda-based plan was removed as obsolete |
 | Training-side scripts and their defaults | `docs/phase1-embedding-index.md`, `docs/phase2-card-detection.md`, `README.md` (Building the index and models) | |
 
 Test counts quoted in `docs/phase5-interface.md` (Validation and the

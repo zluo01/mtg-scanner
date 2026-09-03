@@ -572,4 +572,4 @@ SigLIP2 Base p16-384 achieves **99.3% card name accuracy** on 136 real-world pho
 
 ### What's Next
 
-Phase 4 is complete. **Phase 5 (Interface Design)** defines the web application. **Phase 6 (Deployment)** builds the AWS infrastructure using SigLIP2 Base p16-384 as the single model. See `docs/phase5-interface.md` and `docs/phase6-deployment.md`.
+Phase 4 is complete. **Phase 5 (Application)** builds the web application and server around SigLIP2 Base p16-384 as the single model; see `docs/phase5-interface.md`. Cloud deployment is not designed yet.
