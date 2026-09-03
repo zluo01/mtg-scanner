@@ -1,0 +1,22 @@
+# MTG Scanner -- single-container deployment.
+#
+#   DATA_DIR=~/.config/mtg-scanner docker compose up --build
+#   open http://localhost:3000
+#
+# DATA_DIR must already contain the provisioned index and models
+# (see docs/phase5-interface.md). The SQLite database and scan photos are
+# created inside it on first run.
+
+services:
+  mtg-scanner:
+    build: .
+    image: mtg-scanner:local
+    container_name: mtg-scanner
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - "${DATA_DIR:-./data}:/data"
+    environment:
+      DATA_DIR: /data
+      PORT: "3000"
+    restart: unless-stopped

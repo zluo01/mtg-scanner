@@ -1,0 +1,12 @@
+packages:
+  - web
+  - server
+
+# One flat node_modules at app/, none inside web/ or server/.
+nodeLinker: hoisted
+
+# Packages with post-install hooks need an explicit decision:
+# onnxruntime-node downloads its native binary; protobufjs's hook is not needed.
+allowBuilds:
+  onnxruntime-node: true
+  protobufjs: false

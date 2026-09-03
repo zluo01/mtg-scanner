@@ -1,0 +1,18 @@
+# Build artifacts and dependencies
+app/node_modules/
+app/dist/
+
+# Training pipeline and data (provisioned into /data at runtime instead)
+training/
+data/
+
+# Repo noise
+.git/
+.idea/
+.vscode/
+.claude/
+.forge/
+docs/
+*.log
+*.db
+*.db-*

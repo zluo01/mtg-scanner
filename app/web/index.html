@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<title>MTG Scanner</title>
+		<meta name="description" content="Scan and manage your Magic: The Gathering card collection" />
+		<meta name="theme-color" content="#1c2027" />
+		<script>
+			// A saved Light/Dark choice applies before the first paint (see src/lib/theme.ts).
+			let theme = null;
+			try {
+				theme = localStorage.getItem('mtg-theme');
+			} catch {
+				// storage blocked: follow the OS
+			}
+			if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+		</script>
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<meta name="apple-mobile-web-app-title" content="MTG Scanner" />
+		<link rel="manifest" href="/manifest.webmanifest" />
+		<link rel="icon" type="image/png" href="/icons/icon-192.png" />
+		<link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png" />
+	</head>
+	<body>
+		<div id="root"></div>
+		<script type="module" src="/src/index.tsx"></script>
+	</body>
+</html>

@@ -1,0 +1,27 @@
+{
+	"name": "mtg-scanner-app",
+	"private": true,
+	"type": "module",
+	"engines": {
+		"node": ">=24"
+	},
+	"packageManager": "pnpm@11.22.0",
+	"scripts": {
+		"dev": "vite web & node --watch server/src/index.ts & wait",
+		"dev:web": "vite web",
+		"dev:server": "node --watch server/src/index.ts",
+		"build": "vite build web",
+		"start": "node server/src/index.ts",
+		"test": "node --test 'server/test/**/*.test.ts' 'web/test/**/*.test.ts'",
+		"typecheck": "tsc",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"parity": "node server/scripts/check-parity.ts",
+		"screenshot": "node scripts/screenshot.mjs"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.5.11",
+		"@types/node": "^25.5.2",
+		"typescript": "^6.0.3"
+	}
+}

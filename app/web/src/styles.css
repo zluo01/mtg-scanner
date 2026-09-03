@@ -1,0 +1,213 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Roles, not colours: components only ever reference these.
+ * Light is the base set; dark applies when the OS prefers it (unless the
+ * user forced light) or when the user forced dark via `data-theme` on the
+ * root (src/lib/theme.ts). `color-scheme` follows, so form controls,
+ * scrollbars and the dialog backdrop match.
+ */
+@theme inline {
+	--color-bg: var(--bg);
+	--color-surface: var(--surface);
+	--color-raised: var(--raised);
+	--color-line: var(--line);
+	--color-ink: var(--ink);
+	--color-muted: var(--muted);
+	--color-accent: var(--accent);
+	--color-on-accent: var(--on-accent);
+	--color-good: var(--good);
+	--color-bad: var(--bad);
+	--color-camera: #000000;
+
+	--radius-card: 10px;
+	--radius-control: 12px;
+	--radius-sheet: 20px;
+}
+
+:root {
+	color-scheme: light;
+	--bg: #f0f2f5;
+	--surface: #ffffff;
+	--raised: #f4f6f9;
+	--line: #d8dde5;
+	--ink: #1c2027;
+	--muted: #5b6573;
+	--accent: #a8791a;
+	--on-accent: #ffffff;
+	--good: #1f9d63;
+	--bad: #c9433d;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		color-scheme: dark;
+		--bg: #1c2027;
+		--surface: #262b34;
+		--raised: #303743;
+		--line: #3c4452;
+		--ink: #eef1f5;
+		--muted: #98a2b3;
+		--accent: #e4b44a;
+		--on-accent: #1f1600;
+		--good: #4cc08a;
+		--bad: #e4635e;
+	}
+}
+
+:root[data-theme="dark"] {
+	color-scheme: dark;
+	--bg: #1c2027;
+	--surface: #262b34;
+	--raised: #303743;
+	--line: #3c4452;
+	--ink: #eef1f5;
+	--muted: #98a2b3;
+	--accent: #e4b44a;
+	--on-accent: #1f1600;
+	--good: #4cc08a;
+	--bad: #e4635e;
+}
+
+@layer base {
+	* {
+		border-color: var(--line);
+	}
+	html {
+		-webkit-tap-highlight-color: transparent;
+		font-size: 16px;
+		/* Keep the layout still when a sheet takes the scrollbar away. */
+		scrollbar-gutter: stable;
+	}
+	/* A modal dialog does not stop the page behind it from scrolling (wheel,
+	   keys, touch all chain through the backdrop). Lock the root while a
+	   sheet is open; touch is handled in Dialog.tsx. */
+	:root:has(dialog.sheet[open]) {
+		overflow: hidden;
+	}
+	body {
+		margin: 0;
+		background: var(--bg);
+		color: var(--ink);
+		font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+		font-size: 15px;
+		line-height: 1.4;
+		font-variant-numeric: tabular-nums;
+	}
+	img {
+		display: block;
+	}
+	button {
+		font: inherit;
+		color: inherit;
+	}
+	input[type="search"]::-webkit-search-cancel-button {
+		display: none;
+	}
+
+	/* Sheets: bottom sheet on phones (content-sized, slides up), centred
+	   modal on wider screens. */
+	dialog.sheet {
+		border: 0;
+		padding: 0;
+		background: var(--surface);
+		color: var(--ink);
+		overflow: hidden;
+		/* The swipe-to-close gesture owns downward drags; keep the page behind
+		   from rubber-banding when the sheet's list hits its top. */
+		overscroll-behavior: contain;
+		inset: auto 0 0 0;
+		margin: 0;
+		width: 100vw;
+		max-width: none;
+		height: auto;
+		max-height: 92dvh;
+		border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+	}
+	/* The sheet's content box. Dialog.tsx lowers --sheet-max while the
+	   on-screen keyboard is up so the sheet stays inside the visible area. */
+	dialog.sheet > .sheet-panel {
+		max-height: var(--sheet-max, 92dvh);
+	}
+	dialog.sheet::backdrop {
+		background: rgb(8 10 14 / 0.6);
+	}
+	dialog.sheet[open] {
+		animation: sheet-up 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+	}
+	@media (min-width: 640px) {
+		dialog.sheet {
+			inset: 0;
+			margin: auto;
+			width: min(30rem, calc(100vw - 2rem));
+			/* fit-content, not auto: with top and bottom both anchored, auto
+			   would stretch the box to the full viewport height. */
+			height: fit-content;
+			max-height: min(56rem, calc(100dvh - 2rem));
+			border-radius: var(--radius-sheet);
+			box-shadow: 0 24px 64px rgb(0 0 0 / 0.45);
+		}
+		dialog.sheet[open] {
+			animation: modal-in 180ms ease-out;
+		}
+	}
+	@keyframes sheet-up {
+		from {
+			transform: translateY(100%);
+		}
+		to {
+			transform: none;
+		}
+	}
+	@keyframes modal-in {
+		from {
+			transform: translateY(12px);
+			opacity: 0;
+		}
+		to {
+			transform: none;
+			opacity: 1;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		dialog.sheet[open] {
+			animation: none;
+		}
+	}
+	/* Toasts live in the top layer (Popover API) so they show above sheets. */
+	.toast-layer {
+		position: fixed;
+		inset: auto 0 calc(1.25rem + env(safe-area-inset-bottom)) 0;
+		margin: 0;
+		border: 0;
+		padding: 0 1rem;
+		background: transparent;
+		width: 100vw;
+		max-width: none;
+		overflow: visible;
+		pointer-events: none;
+	}
+}
+
+@layer components {
+	/* The card frame: real card proportions, real card corners, a thin edge. */
+	.card-frame {
+		position: relative;
+		aspect-ratio: 63 / 88;
+		border-radius: var(--radius-card);
+		overflow: hidden;
+		background: var(--raised);
+		box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18);
+	}
+	.card-frame > img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	/* Dashed slot: where a card would go. Used for empty state and upload target. */
+	.card-slot {
+		aspect-ratio: 63 / 88;
+		border-radius: var(--radius-card);
+		border: 2px dashed var(--line);
+	}
+}
