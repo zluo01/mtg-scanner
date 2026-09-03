@@ -1,6 +1,7 @@
 # MTG Scanner
 
-> Note: This project is fully LLM genereated. I use it as my own experiment and anlysis on LLM feasibility. Use at your own risk.
+> [!IMPORTANT]
+> Note: This project is fully LLM genereated (besides these two lines). I use it as my own experiment and anlysis on LLM feasibility. Use at your own risk.
 
 Photograph a Magic: The Gathering card with your phone and get the exact
 printing, then keep the collection in a library you can search, filter,
