@@ -41,7 +41,7 @@ logger = logging.getLogger("export_yolo_onnx")
 DEFAULT_WEIGHTS = (
     config.CARD_DETECTION_MODEL_PATH / "card_detector" / "weights" / "best.pt"
 )
-DEFAULT_OUTPUT = Path.home() / ".config" / "mtg-scanner" / "models" / "card-detector.onnx"
+DEFAULT_OUTPUT = Path(__file__).resolve().parents[2] / "data" / "models" / "card-detector.onnx"
 
 
 def export(weights: Path, output: Path, imgsz: int, opset: int, simplify: bool) -> None:

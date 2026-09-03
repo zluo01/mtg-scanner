@@ -10,7 +10,7 @@
  * Usage (from app/):
  *   pnpm parity -- [--images DIR] [--n 100] [--seed 1]
  *
- * Defaults: DATA_DIR from the environment (or ~/.config/mtg-scanner) and
+ * Defaults: DATA_DIR from the environment (or the repository's data/) and
  * images from ../training/_data/scryfall/images (relative to the repo root).
  */
 import { existsSync } from 'node:fs';

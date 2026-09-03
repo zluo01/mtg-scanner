@@ -14,7 +14,7 @@ matching the preprocessing and output contract expected by
 Usage::
 
     conda run -n learning python training/scripts/export_siglip2_onnx.py \\
-        --output ~/.config/mtg-scanner/models/siglip2-base.onnx
+        --output data/models/siglip2-base.onnx
 
 """
 
@@ -42,7 +42,7 @@ logging.basicConfig(
 logger = logging.getLogger("export_siglip2_onnx")
 
 DEFAULT_MODEL = "siglip2-base-p16-384"
-DEFAULT_OUTPUT = Path.home() / ".config" / "mtg-scanner" / "models" / "siglip2-base.onnx"
+DEFAULT_OUTPUT = Path(__file__).resolve().parents[2] / "data" / "models" / "siglip2-base.onnx"
 
 
 class SigLIPWrapper(torch.nn.Module):
@@ -161,9 +161,9 @@ def main() -> None:
         type=Path,
         default=DEFAULT_OUTPUT,
         help=(
-            "Output .onnx path. Defaults to the runtime location "
-            "~/.config/mtg-scanner/models/siglip2-base.onnx. The app server "
-            "reads this exact path (with ``DATA_DIR`` env override)."
+            "Output .onnx path. Defaults to the repository's "
+            "data/models/siglip2-base.onnx, which is where the app server "
+            "reads it (DATA_DIR overrides the directory)."
         ),
     )
     parser.add_argument(

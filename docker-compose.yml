@@ -1,6 +1,6 @@
 # MTG Scanner -- single-container deployment.
 #
-#   DATA_DIR=~/.config/mtg-scanner docker compose up --build
+#   docker compose up --build            # mounts ./data; or DATA_DIR=/elsewhere docker compose up --build
 #   open http://localhost:3000
 #
 # DATA_DIR must already contain the provisioned index and models

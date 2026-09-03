@@ -15,7 +15,7 @@
 # DATA_DIR must contain index/card_index.faiss, index/card_metadata.parquet,
 # models/siglip2-base.onnx and models/card-detector.onnx (see docs/phase5-interface.md).
 
-DATA_DIR ?= $(HOME)/.config/mtg-scanner
+DATA_DIR ?= $(CURDIR)/data
 # Commands run inside app/, so make relative paths absolute first.
 override DATA_DIR := $(abspath $(DATA_DIR))
 PORT ?= 3000

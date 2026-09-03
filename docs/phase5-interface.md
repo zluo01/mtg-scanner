@@ -211,7 +211,7 @@ response shapes cannot drift between client and server.
 `export_siglip2_onnx.py` (vision tower + L2 normalise, input `pixel_values`
 `[N,3,384,384]`, output `output_embedding` `[N,768]`) and
 `export_yolo_onnx.py` (detector, input `images` `[1,3,640,640]`). Both
-default to `~/.config/mtg-scanner/models/`.
+default to the repository's `data/models/`.
 
 ### 5. Authentication
 
@@ -238,7 +238,7 @@ None. Single-user; no user concept in the data model.
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
-| `DATA_DIR` | `~/.config/mtg-scanner` | Root of all persistent state |
+| `DATA_DIR` | the repository's `data/` | Root of all persistent state (gitignored; `/data` in the container) |
 | `PORT` / `HOST` | `3000` / `0.0.0.0` | Listen address |
 | `WEB_DIST` | `app/dist` | Built frontend; empty string = API only |
 | `SCAN_CONCURRENCY` | `2` | Max simultaneous forward passes |
@@ -563,7 +563,7 @@ state, theme, owned-printing lookup). `make parity` runs Experiment 1.
 ### Packaging
 - [x] `app/` as a pnpm workspace (web/ and server/ own their runtime deps; one hoisted node_modules, one lockfile, one tsconfig, Biome), Makefile (`install`, `dev`, `start`, `check`, `parity`, `docker-*`)
 - [x] Dockerfile (single process, node:24-slim, GPU providers stripped) + compose; container verified with real data
-- [x] Export scripts default to `~/.config/mtg-scanner/models/`
+- [~] Export scripts and the server defaulted to `~/.config/mtg-scanner` -- Superseded: a settings directory is the wrong home for 700 MB of data; everything now defaults to the repository's gitignored `data/`, where the data actually lived
 - [x] Data bundle: `make bundle` packs the four provisioned files into one `.tar.gz` (about 540 MB; the encoder weights do not compress) and `make unbundle` restores it into `DATA_DIR`, so a second machine skips the training pipeline; shared as a download, not in git
 - [x] Delete the untracked `backend/` directory (Rust axum server, 25 GB `target/`) -- removed
 

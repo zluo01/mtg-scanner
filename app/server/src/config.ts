@@ -35,7 +35,9 @@ function intEnv(value: string | undefined, fallback: number): number {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-	const dataDir = path.resolve(env.DATA_DIR ?? path.join(os.homedir(), '.config', 'mtg-scanner'));
+	// Default: the repository's data/ directory (gitignored). In the container
+	// the same relative path lands on the /data volume.
+	const dataDir = path.resolve(env.DATA_DIR ?? path.join(import.meta.dirname, '../../../data'));
 	const defaultDist = path.resolve(import.meta.dirname, '../../dist');
 	const webDist = env.WEB_DIST === '' ? null : path.resolve(env.WEB_DIST ?? defaultDist);
 	const cpuCount = os.availableParallelism();
